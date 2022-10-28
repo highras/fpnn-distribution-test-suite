@@ -1,0 +1,162 @@
+===================================================
+  DAT Control Center Interface: for controller
+===================================================
+//-- deploy： 可以同时部署多个。失败的任务会在传输后1分钟后，自动清除。
+=> deploy { region:%s, actor:%s }
+<= { taskId:%d }
+
+=> deploy { endpoints:[%s], actor:%s }
+<= { taskId:%d }
+
+
+//-- uploadActor: 一次只能传一个。连接断开自动清除未完成任务。
+=> uploadActor { name:%s, actor:%B, ?desc:%s }
+<= { taskId:%d }
+
+//-- count: total section count.
+//-- no: current section number. Base 1 in quest params.
+//-- each section (exclude the last section) is required in same length.
+=> uploadActor { name:%s, section:%B, count:%d, no:%d, ?desc:%s }
+<= { taskId:%d }
+
+
+=> reloadActorInfo {}
+<= { availableActors:{ fields:[%s], rows:[[%s]] }, deployedActors:{ fields:[%s], rows:[[%s]] } }
+
+=> availableActors {}
+<= { availableActors:{ fields:[%s], rows:[[%s]] }, deployedActors:{ fields:[%s], rows:[[%s]] } }
+/*
+availableActors:
+	fields: name, size, mtime, md5, desc
+
+deployedActors:
+	fields: region, endpoint, actorName, size, mtime, md5
+*/
+
+=> monitorMachineStatus { monitor:%b }
+<= {}
+
+=> machineStatus {}
+<= { fields:[%s], rows:[[%s]] }
+/*
+  fields: source, region, host, ping/2 (msec), cpus, load, memories, freeMemories, tcpCount, udpCount, RX, TX
+*/
+
+=> actorTaskStatus {}
+<= { fields:[%s], rows:[[%s]] }
+/*
+	fields: region, endpoint, actorName, pid, task id, method, desc
+*/
+
+=> actorAction { actor:%s, endpoint:%s, pid:%d, method:%s, payload:%B, ?taskDesc:%s }
+<= { taskId:%d }
+
+=> systemCmd { region:%s, cmdLines:[%s] }
+=> systemCmd { endpoints:[%s], cmdLines:[%s] }
+<= { ok: true }
+<= { ok: false, failedEndpoints:{ %s, %d } }   //-- failedEndpoints:{ endpoint, failed line }
+
+=> launchActor { region:%s, actor:%s, ?cmdLine:%s }
+=> launchActor { endpoints:[%s], actor:%s, ?cmdLine:%s }
+<= { ok: true }
+<= { ok: false, failedEndpoints:[%s] }
+
+=> monitorTasks { taskIds:[%d] }
+<= {}
+
+=> ping {}
+<= {}
+
+===================================================
+  DAT Control Center Interface: for deployer
+===================================================
+//-- When deployer connect CC server, or deployed actors changed.
+=> registerDeployer { region:%s, fields:[%s], rows:[[%s]], cpus:%d, totalMemories:%d }
+<= {}
+/*
+fields:
+	actor, size, md5, mtime
+*/
+
+===================================================
+  DAT Control Center Interface: for monitor
+===================================================
+//-- When montior connect CC server
+=> registerMonitor { region:%s, cpus:%d, totalMemories:%d }
+<= {}
+
+===================================================
+  DAT Control Center Interface: for actor
+===================================================
+//-- register or update current Tasks.
+=> registerActor { region:%s, name:%s, pid:%d, ?executingTasks:{ %d: [%s, %s] } }   //-- executingTasks:{ taskId: [method, desc] }
+<= {}
+
+=> actorStatus { taskId:%d, region:%s, payload:%B }
+<= {}
+
+=> actorResult { taskId:%d, region:%s, payload:%B }
+<= {}
+
+=================================
+  Server push info: Deployer
+=================================
+//-- count: total section count.
+//-- no: current section number.
+=> deployActor { taskId:%d, name:%s, section:%B, count:%d, no:%d }  //-- all sections in an unique taskId.
+<= {}
+
+=> ping {}
+<= {}
+
+=> machineStatus {}
+<= { sysLoad:%f, tcpConn:%d, udpConn:%d, freeMemories:%d, RX:%d, TX:%d }
+
+=> systemCmd { cmdLines:[%s] }
+<= { ok: true }
+<= { ok: false, failedLine:%d }
+
+=> launchActor { actor:%s, ?cmdLine:%s }
+<= { ok:%b }
+
+=================================
+  Server push info: Monitor
+=================================
+
+=> ping {}
+<= {}
+
+=> machineStatus {}
+<= { sysLoad:%f, tcpConn:%d, udpConn:%d, freeMemories:%d, RX:%d, TX:%d }
+
+=================================
+  Server push info: actor
+=================================
+=> action { taskId:%d, method:%s, payload:%B }
+<= {}
+
+=================================
+  Server push info: controller
+=================================
+=> uploadFinish { taskId:%d, actor:%s, ok:%b }
+<= {}
+
+=> deployFinish { taskId:%d, failedEndpoints:[%s] }
+<= {}
+
+=> actorStatus { taskId:%d, region:%s, endpoint:%s, payload:%B }
+<= {}
+
+=> actorResult { taskId:%d, region:%s, endpoint:%s, payload:%B }
+<= {}
+
+----------------------------
+ Exception
+----------------------------
+
+# If excpetion occurred, return standard error answer.
+# exception codes:
+# ------------------------------------------------
+# 100001: Actor host is busy. 
+# 100002: Another file update task is executing.
+# 100003: Actor is not exist.
